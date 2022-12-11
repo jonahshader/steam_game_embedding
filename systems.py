@@ -22,10 +22,11 @@ def find_nearest_neighbors(data, query, k=10):
     distances = np.linalg.norm(data - query, axis=1)
 
     # sort the distances
-    sorted_distances = np.argsort(distances)
+    sorted_distance_indices = np.argsort(distances)
+    sorted_distances = distances[sorted_distance_indices]
 
     # return the indices of the k nearest neighbors
-    return sorted_distances[:k]
+    return sorted_distance_indices[:k], sorted_distances[:k]
 
 def find_nearest_neighbors_using_cosine_similarity(data, query, k=10):
     """Find the k nearest neighbors of the query in the data."""

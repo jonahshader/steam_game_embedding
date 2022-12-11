@@ -18,14 +18,14 @@ def find_similar_games(using_cosine_similarity=False):
     # find the k nearest neighbors
     k = 10
     if using_cosine_similarity:
-        neighbors = find_nearest_neighbors_using_cosine_similarity(game_embeddings, game_embeddings[game_index], k=k)
+        neighbors, neighbor_dists = find_nearest_neighbors_using_cosine_similarity(game_embeddings, game_embeddings[game_index], k=k)
     else:
-        neighbors = find_nearest_neighbors(game_embeddings, game_embeddings[game_index], k=k)
+        neighbors, neighbor_dists = find_nearest_neighbors(game_embeddings, game_embeddings[game_index], k=k)
 
     # display the results
     print(f'Games similar to {game["name"]}:')
     for i in range(1, k):
-        print(f'{i}: {game_search.data[neighbors[i]]["name"]}')
+        print(f'{i}: {game_search.data[neighbors[i]]["name"], neighbor_dists[i]}')
 
 def game_to_vec(name=None):
     """Find the vector representation of a game."""
@@ -37,14 +37,14 @@ def find_similar_games_to_vec(vec, using_cosine_similarity=False):
     # find the k nearest neighbors
     k = 10
     if using_cosine_similarity:
-        neighbors = find_nearest_neighbors_using_cosine_similarity(game_embeddings, vec, k=k)
+        neighbors, neighbor_dists = find_nearest_neighbors_using_cosine_similarity(game_embeddings, vec, k=k)
     else:
-        neighbors = find_nearest_neighbors(game_embeddings, vec, k=k)
+        neighbors, neighbor_dists = find_nearest_neighbors(game_embeddings, vec, k=k)
 
     # display the results
     print(f'Similar games:')
     for i in range(0, k):
-        print(f'{i}: {game_search.data[neighbors[i]]["name"]}')
+        print(f'{i}: {game_search.data[neighbors[i]]["name"], neighbor_dists[i]}')
 
 def make_axis_model(a_game_vecs, b_game_vecs):
     """Find the axis that separates the two sets of games."""
@@ -75,6 +75,55 @@ def print_first_and_last_n_games(indices, n=5):
     print('Last n games:')
     for i in range(n):
         print(f'{i}: {game_search.data[indices[-i - 1]]["name"]}')
+
+def evaluate_existing_axis(game_vecs, data, is_group1_lambda):
+    """Create two groups based on applying is_group1_lambda to each game in data.
+    Then, find the axis that separates the two groups and evaluate it."""
+    # create two groups
+    group1 = [i for i in range(len(data)) if is_group1_lambda(data[i])]
+    group2 = [i for i in range(len(data)) if not is_group1_lambda(data[i])]
+
+    # truncate the larger group to the size of the smaller group
+    if len(group1) > len(group2):
+        group1 = group1[:len(group2)]
+    else:
+        group2 = group2[:len(group1)]
+
+    # split into training and testing sets
+    train_size = int(len(group1) * 0.8)
+    print(f'Training size: {train_size}')
+    train_group1 = group1[:train_size]
+    train_group2 = group2[:train_size]
+    test_group1 = group1[train_size:]
+    test_group2 = group2[train_size:]
+
+    # find the axis that separates the two groups
+    w, b = make_axis_model(game_vecs[train_group1], game_vecs[train_group2])
+
+    # evaluate the axis
+    # if embedding @ w + b > 0, then the game is in group 2
+    # if embedding @ w + b < 0, then the game is in group 1
+
+    # evaluate on the training set
+    correct = 0
+    for i in train_group1:
+        if game_vecs[i] @ w + b < 0:
+            correct += 1
+    for i in train_group2:
+        if game_vecs[i] @ w + b > 0:
+            correct += 1
+    print(f'Training accuracy: {correct / (len(train_group1) + len(train_group2))}')
+
+    # evaluate on the testing set
+    correct = 0
+    for i in test_group1:
+        if game_vecs[i] @ w + b < 0:
+            correct += 1
+    for i in test_group2:
+        if game_vecs[i] @ w + b > 0:
+            correct += 1
+    print(f'Testing accuracy: {correct / (len(test_group1) + len(test_group2))}')
+
 
 factorio = game_to_vec('Factorio')
 satisfactory = game_to_vec('Satisfactory')
